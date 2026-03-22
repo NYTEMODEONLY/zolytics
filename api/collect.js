@@ -1,4 +1,4 @@
-// zo-analytics — Collection API Route
+// zolytics — Collection API Route
 // Runtime: Bun + Hono (Zo Space server-side)
 // Route: /api/analytics/collect  (route_type=api)
 // POST { path, referrer, viewport_width, timestamp } → 204 | 400 | 429
@@ -16,7 +16,7 @@ let requestCount = 0;
 
 function getDb(): any {
   if (!db) {
-    db = new Database("/home/workspace/zo-analytics/analytics.db");
+    db = new Database("/home/workspace/zolytics/analytics.db");
     db.exec(`
       CREATE TABLE IF NOT EXISTS page_views (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,7 +125,7 @@ export default async function handler(c: any): Promise<Response> {
         .run();
     }
   } catch (e) {
-    console.error("[zo-analytics] DB error:", e);
+    console.error("[zolytics] DB error:", e);
     return new Response(null, { status: 500 });
   }
 

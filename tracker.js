@@ -1,4 +1,4 @@
-// zo-analytics tracker v1.0
+// zolytics tracker v1.0
 // Privacy-first, async page view tracking. No cookies, no localStorage, no fingerprinting.
 // Usage: <script src="/path/to/tracker.js" defer></script>
 // Override endpoint: <script src="/tracker.js" data-endpoint="/api/custom/collect" defer></script>

@@ -151,7 +151,7 @@ export default function AnalyticsDashboard() {
   const { data, loading, error, reload } = useAnalytics(period);
 
   useEffect(() => {
-    document.title = 'Zo Analytics';
+    document.title = 'Zolytics';
   }, []);
 
   const containerStyle = {
@@ -295,8 +295,8 @@ export default function AnalyticsDashboard() {
 
         {/* Footer */}
         <div style={{ textAlign: 'center', color: COLORS.muted, fontSize: 12, marginTop: 32 }}>
-          Zo Analytics · Privacy-first web analytics for Zo Computers ·{' '}
-          <a href="https://github.com/NYTEMODEONLY/zo-analytics" style={{ color: COLORS.accentLight, textDecoration: 'none' }}>
+          Zolytics · Privacy-first web analytics for Zo Computers ·{' '}
+          <a href="https://github.com/NYTEMODEONLY/zolytics" style={{ color: COLORS.accentLight, textDecoration: 'none' }}>
             GitHub
           </a>
         </div>

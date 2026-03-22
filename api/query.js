@@ -1,11 +1,11 @@
-// zo-analytics — Query API Route
+// zolytics — Query API Route
 // Runtime: Bun + Hono (Zo Space server-side)
 // Route: /api/analytics/query  (route_type=api)
 // GET /api/analytics/query?period=7d|30d|90d&limit=10  → JSON analytics summary
 
 const { Database } = require("bun:sqlite");
 
-const DB_PATH = "/home/workspace/zo-analytics/analytics.db";
+const DB_PATH = "/home/workspace/zolytics/analytics.db";
 
 let db: any = null;
 
@@ -117,7 +117,7 @@ export default async function handler(c: any): Promise<Response> {
       }
     );
   } catch (e) {
-    console.error("[zo-analytics] Query error:", e);
+    console.error("[zolytics] Query error:", e);
     return new Response(JSON.stringify({ error: "query failed" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
