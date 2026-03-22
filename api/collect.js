@@ -47,9 +47,21 @@ function checkRateLimit(ip) {
   return entry.count <= RATE_LIMIT;
 }
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400',
+};
+
 export default async function handler(c) {
+  // Handle CORS preflight
+  if (c.req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   if (c.req.method !== 'POST') {
-    return new Response(null, { status: 405 });
+    return new Response(null, { status: 405, headers: CORS_HEADERS });
   }
 
   const ip =
@@ -58,34 +70,34 @@ export default async function handler(c) {
     'unknown';
 
   if (!checkRateLimit(ip)) {
-    return new Response(null, { status: 429 });
+    return new Response(null, { status: 429, headers: CORS_HEADERS });
   }
 
   let body;
   try {
     const text = await c.req.text();
     if (text.length > 4096) {
-      return new Response(null, { status: 400 });
+      return new Response(null, { status: 400, headers: CORS_HEADERS });
     }
     body = JSON.parse(text);
   } catch {
-    return new Response(null, { status: 400 });
+    return new Response(null, { status: 400, headers: CORS_HEADERS });
   }
 
   const { path, referrer, viewport_width, timestamp } = body || {};
 
   if (!path || typeof path !== 'string' || path.length > 2048) {
-    return new Response(null, { status: 400 });
+    return new Response(null, { status: 400, headers: CORS_HEADERS });
   }
   if (!timestamp || typeof timestamp !== 'string' || timestamp.length > 64) {
-    return new Response(null, { status: 400 });
+    return new Response(null, { status: 400, headers: CORS_HEADERS });
   }
   if (
     viewport_width !== undefined &&
     viewport_width !== null &&
     typeof viewport_width !== 'number'
   ) {
-    return new Response(null, { status: 400 });
+    return new Response(null, { status: 400, headers: CORS_HEADERS });
   }
 
   const country = c.req.header('cf-ipcountry') || c.req.header('x-country') || null;
@@ -115,8 +127,8 @@ export default async function handler(c) {
     }
   } catch (error) {
     console.error('[zolytics] DB error:', error);
-    return new Response(null, { status: 500 });
+    return new Response(null, { status: 500, headers: CORS_HEADERS });
   }
 
-  return new Response(null, { status: 204 });
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
