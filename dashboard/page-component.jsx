@@ -18,6 +18,55 @@ const COLORS = {
   bar: '#5b21b6',
 };
 
+function getToken() {
+  const match = document.cookie.match(/zolytics_token=([^;]+)/);
+  return match ? match[1] : null;
+}
+
+function setToken(token) {
+  document.cookie = 'zolytics_token=' + token + '; path=/; max-age=31536000; SameSite=Strict';
+}
+
+function LoginGate({ onAuth }) {
+  const [input, setInput] = useState('');
+  const [error, setError] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setChecking(true);
+    setError(false);
+    fetch('/api/analytics/query?period=7d&token=' + encodeURIComponent(input.trim()))
+      .then(r => {
+        if (r.status === 401) { setError(true); setChecking(false); return; }
+        setToken(input.trim());
+        onAuth(input.trim());
+      })
+      .catch(() => { setError(true); setChecking(false); });
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+      <form onSubmit={handleSubmit} style={{ background: COLORS.surface, border: '1px solid ' + COLORS.border, borderRadius: 12, padding: 40, maxWidth: 360, width: '100%', textAlign: 'center' }}>
+        <div style={{ fontSize: 24, fontWeight: 700, color: COLORS.accentLight, marginBottom: 8 }}>Zolytics</div>
+        <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 24 }}>Enter your access token</div>
+        <input
+          type="password"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="Token"
+          style={{ width: '100%', padding: '10px 14px', background: COLORS.bg, border: '1px solid ' + COLORS.border, borderRadius: 8, color: COLORS.text, fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 12 }}
+          autoFocus
+        />
+        {error && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>Invalid token</div>}
+        <button type="submit" disabled={checking || !input.trim()} style={{ width: '100%', padding: '10px 0', background: COLORS.accent, color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: checking ? 0.6 : 1 }}>
+          {checking ? 'Checking...' : 'Access Dashboard'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function useAnalytics(period) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,8 +75,13 @@ function useAnalytics(period) {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    fetch('/api/analytics/query?period=' + period)
-      .then(r => r.json())
+    const token = getToken();
+    const tokenParam = token ? '&token=' + encodeURIComponent(token) : '';
+    fetch('/api/analytics/query?period=' + period + tokenParam)
+      .then(r => {
+        if (r.status === 401) throw new Error('unauthorized');
+        return r.json();
+      })
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
   }, [period]);
@@ -146,12 +200,12 @@ function DeviceChart({ devices }) {
   );
 }
 
-export default function AnalyticsDashboard() {
+function AnalyticsDashboardInner() {
   const [period, setPeriod] = useState('30d');
   const { data, loading, error, reload } = useAnalytics(period);
 
   useEffect(() => {
-    document.title = 'Zo Analytics';
+    document.title = 'Zolytics';
   }, []);
 
   const containerStyle = {
@@ -295,8 +349,8 @@ export default function AnalyticsDashboard() {
 
         {/* Footer */}
         <div style={{ textAlign: 'center', color: COLORS.muted, fontSize: 12, marginTop: 32 }}>
-          Zo Analytics · Privacy-first web analytics for Zo Computers ·{' '}
-          <a href="https://github.com/NYTEMODEONLY/zo-analytics" style={{ color: COLORS.accentLight, textDecoration: 'none' }}>
+          Zolytics · Privacy-first web analytics for Zo Computers ·{' '}
+          <a href="https://github.com/NYTEMODEONLY/zolytics" style={{ color: COLORS.accentLight, textDecoration: 'none' }}>
             GitHub
           </a>
         </div>
@@ -315,4 +369,14 @@ export default function AnalyticsDashboard() {
       `}</style>
     </div>
   );
+}
+
+export default function AnalyticsDashboard() {
+  const [authed, setAuthed] = useState(() => !!getToken());
+
+  if (!authed) {
+    return <LoginGate onAuth={() => setAuthed(true)} />;
+  }
+
+  return <AnalyticsDashboardInner />;
 }

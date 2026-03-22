@@ -1,13 +1,42 @@
-// zo-analytics — Query API Route
+// zolytics — Query API Route (with auth)
 // Runtime: Bun + Hono (Zo Space server-side)
 // Route: /api/analytics/query  (route_type=api)
-// GET /api/analytics/query?period=7d|30d|90d&limit=10  → JSON analytics summary
+// GET /api/analytics/query?period=7d|30d|90d&limit=10&token=<auth_token>  → JSON analytics summary
 
 const { Database } = require("bun:sqlite");
+const fs = require("fs");
 
-const DB_PATH = "/home/workspace/zo-analytics/analytics.db";
+const DB_PATH = "/home/workspace/zolytics/analytics.db";
+const TOKEN_PATH = "/home/workspace/zolytics/.auth_token";
 
 let db: any = null;
+let cachedToken: string | null = null;
+
+function getAuthToken(): string | null {
+  if (cachedToken) return cachedToken;
+  try {
+    cachedToken = fs.readFileSync(TOKEN_PATH, "utf-8").trim();
+    return cachedToken;
+  } catch {
+    return null;
+  }
+}
+
+function checkAuth(c: any): boolean {
+  const token = getAuthToken();
+  if (!token) return true; // no token file = no auth (first-run)
+  
+  // Check query param
+  const qToken = c.req.query("token");
+  if (qToken === token) return true;
+  
+  // Check cookie
+  const cookie = c.req.header("cookie") || "";
+  const match = cookie.match(/zolytics_token=([^;]+)/);
+  if (match && match[1] === token) return true;
+  
+  return false;
+}
 
 function getDb(): any {
   if (!db) {
@@ -43,6 +72,13 @@ export default async function handler(c: any): Promise<Response> {
     return new Response(null, { status: 405 });
   }
 
+  if (!checkAuth(c)) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const period = c.req.query("period") || "30d";
   const days = parsePeriod(period);
   const limitRaw = parseInt(c.req.query("limit") || "10", 10);
@@ -56,7 +92,6 @@ export default async function handler(c: any): Promise<Response> {
     });
   }
 
-  // Compute cutoff dates in JS — no dynamic SQL string injection
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const todayCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -112,12 +147,11 @@ export default async function handler(c: any): Promise<Response> {
         headers: {
           "Content-Type": "application/json",
           "Cache-Control": "no-cache",
-          "Access-Control-Allow-Origin": "*",
         },
       }
     );
   } catch (e) {
-    console.error("[zo-analytics] Query error:", e);
+    console.error("[zolytics] Query error:", e);
     return new Response(JSON.stringify({ error: "query failed" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

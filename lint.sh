@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zo-analytics lint script
+# zolytics lint script
 # Checks syntax of tracker.js and lib/db.js with Node.js
 # Note: api/collect.js is TypeScript for Bun/Zo Space runtime, checked separately
 
@@ -29,7 +29,7 @@ check_bun() {
   fi
 }
 
-echo "=== zo-analytics lint ==="
+echo "=== zolytics lint ==="
 echo ""
 
 check_node "$SCRIPT_DIR/tracker.js"

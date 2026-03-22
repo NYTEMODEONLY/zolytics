@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# zo-analytics install.sh
-# One-command setup for Zo Analytics on any Zo Computer
+# zolytics install.sh
+# One-command setup for Zolytics on any Zo Computer
 # Usage: bash install.sh [--yes] [--analytics-path /analytics] [--db-path /path/to/analytics.db]
 # Idempotent: safe to run multiple times
 
 set -euo pipefail
 
 # ─── Defaults ────────────────────────────────────────────────────────────────
-ZO_ANALYTICS_DIR="${ZO_ANALYTICS_DIR:-/home/workspace/zo-analytics}"
-DB_PATH="${DB_PATH:-/home/workspace/zo-analytics/analytics.db}"
+ZOLYTICS_DIR="${ZOLYTICS_DIR:-/home/workspace/zolytics}"
+DB_PATH="${DB_PATH:-/home/workspace/zolytics/analytics.db}"
 ANALYTICS_ROUTE="${ANALYTICS_ROUTE:-/analytics}"
 COLLECT_ROUTE="/api/analytics/collect"
 QUERY_ROUTE="/api/analytics/query"
@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
     --yes|-y)          SKIP_CONFIRM=1 ;;
     --analytics-path)  ANALYTICS_ROUTE="$2"; shift ;;
     --db-path)         DB_PATH="$2"; shift ;;
-    --dir)             ZO_ANALYTICS_DIR="$2"; shift ;;
+    --dir)             ZOLYTICS_DIR="$2"; shift ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
   shift
@@ -30,14 +30,14 @@ done
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'
 BLUE='\033[0;34m'; BOLD='\033[1m'; RESET='\033[0m'
 
-info()    { echo -e "${BLUE}[zo-analytics]${RESET} $*"; }
-success() { echo -e "${GREEN}[zo-analytics]${RESET} $*"; }
-warn()    { echo -e "${YELLOW}[zo-analytics]${RESET} $*"; }
-error()   { echo -e "${RED}[zo-analytics]${RESET} $*" >&2; }
+info()    { echo -e "${BLUE}[zolytics]${RESET} $*"; }
+success() { echo -e "${GREEN}[zolytics]${RESET} $*"; }
+warn()    { echo -e "${YELLOW}[zolytics]${RESET} $*"; }
+error()   { echo -e "${RED}[zolytics]${RESET} $*" >&2; }
 
 # ─── Banner ──────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}  Zo Analytics — Privacy-First Web Analytics${RESET}"
+echo -e "${BOLD}  Zolytics — Privacy-First Web Analytics${RESET}"
 echo -e "  Open source · No cookies · Self-hosted on your Zo Computer"
 echo ""
 
@@ -88,7 +88,7 @@ deploy_route() {
 
   if [[ ! -f "$source_file" ]]; then
     error "Source file not found: ${source_file}"
-    error "Make sure you cloned/installed zo-analytics to: ${ZO_ANALYTICS_DIR}"
+    error "Make sure you cloned/installed zolytics to: ${ZOLYTICS_DIR}"
     exit 1
   fi
 
@@ -133,13 +133,13 @@ main() {
   setup_db
 
   # 2. Deploy collection API
-  deploy_route "$COLLECT_ROUTE" "api" "${ZO_ANALYTICS_DIR}/api/collect.js" "Collection API"
+  deploy_route "$COLLECT_ROUTE" "api" "${ZOLYTICS_DIR}/api/collect.js" "Collection API"
 
   # 3. Deploy query API
-  deploy_route "$QUERY_ROUTE" "api" "${ZO_ANALYTICS_DIR}/api/query.js" "Query API"
+  deploy_route "$QUERY_ROUTE" "api" "${ZOLYTICS_DIR}/api/query.js" "Query API"
 
   # 4. Deploy dashboard page
-  deploy_route "$ANALYTICS_ROUTE" "page" "${ZO_ANALYTICS_DIR}/dashboard/page-component.jsx" "Dashboard"
+  deploy_route "$ANALYTICS_ROUTE" "page" "${ZOLYTICS_DIR}/dashboard/page-component.jsx" "Dashboard"
 
   echo ""
   echo -e "${GREEN}${BOLD}  Installation complete!${RESET}"
@@ -160,7 +160,7 @@ main() {
   echo "  │  Dashboard: https://nytemode.zo.space${ANALYTICS_ROUTE}           │"
   echo "  └─────────────────────────────────────────────────────────────┘"
   echo ""
-  echo "  For full integration guide: cat ${ZO_ANALYTICS_DIR}/INTEGRATION.md"
+  echo "  For full integration guide: cat ${ZOLYTICS_DIR}/INTEGRATION.md"
   echo ""
 }
 

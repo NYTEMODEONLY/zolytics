@@ -1,4 +1,4 @@
-# zo-analytics
+# zolytics
 
 **Open source, privacy-first web analytics for Zo Computers.**
 
@@ -22,13 +22,13 @@ Track page views on your Zo Space without cookies, fingerprinting, or external s
 
 ```bash
 # 1. Clone
-git clone https://github.com/NYTEMODEONLY/zo-analytics /home/workspace/zo-analytics
+git clone https://github.com/NYTEMODEONLY/zolytics /home/workspace/zolytics
 
 # 2. Install (deploys routes to your Zo Space)
-bash /home/workspace/zo-analytics/install.sh
+bash /home/workspace/zolytics/install.sh
 
 # 3. Add the tracker to your pages (see snippet.sh below)
-bash /home/workspace/zo-analytics/snippet.sh
+bash /home/workspace/zolytics/snippet.sh
 ```
 
 Your dashboard will be live at `https://[yourdomain].zo.space/analytics`.
@@ -38,7 +38,7 @@ Your dashboard will be live at `https://[yourdomain].zo.space/analytics`.
 ## Repository Structure
 
 ```
-zo-analytics/
+zolytics/
   tracker.js                    # Browser tracking snippet (~485B gzipped)
   install.sh                    # One-command installer
   snippet.sh                    # Tracking snippet generator
@@ -67,7 +67,7 @@ mcporter call zo.update_space_route \
   path=/api/analytics/collect \
   route_type=api \
   public=true \
-  code="$(cat /home/workspace/zo-analytics/api/collect.js)"
+  code="$(cat /home/workspace/zolytics/api/collect.js)"
 ```
 
 ### 2. Deploy the query API
@@ -77,7 +77,7 @@ mcporter call zo.update_space_route \
   path=/api/analytics/query \
   route_type=api \
   public=true \
-  code="$(cat /home/workspace/zo-analytics/api/query.js)"
+  code="$(cat /home/workspace/zolytics/api/query.js)"
 ```
 
 ### 3. Deploy the dashboard page
@@ -85,7 +85,7 @@ mcporter call zo.update_space_route \
 ```bash
 python3 /home/workspace/paperclip-companies/zoey/scripts/deploy-zo-page.py \
   /analytics \
-  /home/workspace/zo-analytics/dashboard/page-component.jsx
+  /home/workspace/zolytics/dashboard/page-component.jsx
 ```
 
 ### 4. Add the tracking snippet
@@ -98,14 +98,14 @@ See [INTEGRATION.md](./INTEGRATION.md) for how to add tracking to your pages.
 
 | Variable | Default | Description |
 |---|---|---|
-| `ZO_ANALYTICS_DIR` | `/home/workspace/zo-analytics` | Path to zo-analytics checkout |
-| `DB_PATH` | `/home/workspace/zo-analytics/analytics.db` | SQLite database path |
+| `ZOLYTICS_DIR` | `/home/workspace/zolytics` | Path to zolytics checkout |
+| `DB_PATH` | `/home/workspace/zolytics/analytics.db` | SQLite database path |
 | `ANALYTICS_ROUTE` | `/analytics` | Dashboard URL path |
 
 Pass as env vars or flags to `install.sh`:
 
 ```bash
-ZO_ANALYTICS_DIR=/my/path bash install.sh --analytics-path /my-analytics --yes
+ZOLYTICS_DIR=/my/path bash install.sh --analytics-path /my-analytics --yes
 ```
 
 **Retention period:** The collection API auto-prunes data older than 90 days every 100 writes. There is no config option for this currently — edit the `100` and `90` constants in `api/collect.js` if needed.
@@ -158,7 +158,7 @@ Returns analytics summary for a time period.
 
 ## Database
 
-**Location:** `/home/workspace/zo-analytics/analytics.db`
+**Location:** `/home/workspace/zolytics/analytics.db`
 
 **Schema:**
 ```sql
@@ -176,7 +176,7 @@ CREATE TABLE page_views (
 
 **Backup:**
 ```bash
-cp /home/workspace/zo-analytics/analytics.db ~/analytics-backup-$(date +%Y%m%d).db
+cp /home/workspace/zolytics/analytics.db ~/analytics-backup-$(date +%Y%m%d).db
 ```
 
 ---
@@ -231,7 +231,7 @@ Dashboard Page (/analytics)
 ## Lint
 
 ```bash
-bash /home/workspace/zo-analytics/lint.sh
+bash /home/workspace/zolytics/lint.sh
 ```
 
 ---

@@ -1,4 +1,4 @@
-# Zo Analytics — Integration Guide
+# Zolytics — Integration Guide
 
 How to add tracking to your Zo Space pages.
 
@@ -9,11 +9,11 @@ How to add tracking to your Zo Space pages.
 Run the snippet generator for the exact code to add to your pages:
 
 ```bash
-bash /home/workspace/zo-analytics/snippet.sh
+bash /home/workspace/zolytics/snippet.sh
 # For HTML output:
-bash /home/workspace/zo-analytics/snippet.sh --format html
+bash /home/workspace/zolytics/snippet.sh --format html
 # For inline (no external script):
-bash /home/workspace/zo-analytics/snippet.sh --format inline
+bash /home/workspace/zolytics/snippet.sh --format inline
 ```
 
 ---
@@ -138,7 +138,7 @@ The collection API has data but the query API returned nothing — check:
 
 2. Check the SQLite DB has rows:
    ```bash
-   sqlite3 /home/workspace/zo-analytics/analytics.db "SELECT COUNT(*) FROM page_views"
+   sqlite3 /home/workspace/zolytics/analytics.db "SELECT COUNT(*) FROM page_views"
    ```
 
 3. If empty, verify the collection API is deployed and your tracker snippet is in your pages.
@@ -152,7 +152,7 @@ mcporter call zo.update_space_route \
   path=/api/analytics/collect \
   route_type=api \
   public=true \
-  code="$(cat /home/workspace/zo-analytics/api/collect.js)"
+  code="$(cat /home/workspace/zolytics/api/collect.js)"
 ```
 
 ### tracker.js returns 404
@@ -161,7 +161,7 @@ Deploy `tracker.js` as a Zo Space asset:
 
 ```bash
 mcporter call zo.update_space_asset \
-  source_file=/home/workspace/zo-analytics/tracker.js \
+  source_file=/home/workspace/zolytics/tracker.js \
   asset_path=/api/analytics/tracker.js
 ```
 
@@ -176,15 +176,15 @@ The collection API limits to 100 requests per IP per minute. This is to prevent 
 The collection API auto-prunes data older than 90 days every 100 writes. To manually prune:
 
 ```bash
-sqlite3 /home/workspace/zo-analytics/analytics.db \
+sqlite3 /home/workspace/zolytics/analytics.db \
   "DELETE FROM page_views WHERE created_at < datetime('now', '-90 days')"
 ```
 
 To check database size:
 
 ```bash
-ls -lh /home/workspace/zo-analytics/analytics.db
-sqlite3 /home/workspace/zo-analytics/analytics.db "SELECT COUNT(*) FROM page_views"
+ls -lh /home/workspace/zolytics/analytics.db
+sqlite3 /home/workspace/zolytics/analytics.db "SELECT COUNT(*) FROM page_views"
 ```
 
 ### Re-running the installer
@@ -192,14 +192,14 @@ sqlite3 /home/workspace/zo-analytics/analytics.db "SELECT COUNT(*) FROM page_vie
 The installer is idempotent — safe to run multiple times. It will re-deploy all routes and preserve your existing database.
 
 ```bash
-bash /home/workspace/zo-analytics/install.sh --yes
+bash /home/workspace/zolytics/install.sh --yes
 ```
 
 ---
 
 ## Uninstalling
 
-To remove zo-analytics from your Zo Space:
+To remove zolytics from your Zo Space:
 
 ```bash
 # Routes will be deleted (replace with your actual route IDs if needed)
@@ -208,9 +208,9 @@ mcporter call zo.delete_space_route path=/api/analytics/query
 mcporter call zo.delete_space_route path=/analytics
 
 # Optionally delete the database
-rm /home/workspace/zo-analytics/analytics.db
+rm /home/workspace/zolytics/analytics.db
 ```
 
 ---
 
-*For questions or issues: https://github.com/NYTEMODEONLY/zo-analytics/issues*
+*For questions or issues: https://github.com/NYTEMODEONLY/zolytics/issues*
