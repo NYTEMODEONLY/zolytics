@@ -637,9 +637,10 @@ const dashboardStyles = `
 
   .zolytics-chart-bar {
     width: 100%;
-    min-height: 2px;
+    min-height: 4px;
     border-radius: 10px;
-    background: linear-gradient(180deg, #d4a574 0%, #c2410c 100%);
+    background: #c2410c;
+    box-shadow: 0 0 8px rgba(194, 65, 12, 0.4);
   }
 
   .zolytics-chart-value {
@@ -696,7 +697,8 @@ const dashboardStyles = `
   .zolytics-list-bar {
     height: 100%;
     border-radius: 999px;
-    background: linear-gradient(90deg, #c2410c 0%, #d4a574 100%);
+    background: #c2410c;
+    box-shadow: 0 0 6px rgba(194, 65, 12, 0.35);
   }
 
   .zolytics-device-grid {
