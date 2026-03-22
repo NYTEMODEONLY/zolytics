@@ -1,121 +1,186 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 
 const PERIODS = [
-  { label: '7d', value: '7d' },
-  { label: '30d', value: '30d' },
-  { label: '90d', value: '90d' },
+  { label: '7d', value: '7d', description: 'Last 7 days' },
+  { label: '30d', value: '30d', description: 'Last 30 days' },
+  { label: '90d', value: '90d', description: 'Last 90 days' },
 ];
 
-const COLORS = {
-  bg: '#0a0a0a',
-  surface: '#111111',
-  border: '#1f1f1f',
-  accent: '#7c3aed',
-  accentLight: '#a78bfa',
-  text: '#e5e7eb',
-  muted: '#6b7280',
-  green: '#10b981',
-  bar: '#5b21b6',
+const META = {
+  title: 'Zolytics Dashboard',
+  description: 'Private analytics dashboard for Zo Space routes.',
+  url: 'https://nytemode.zo.space/analytics',
+  color: '#0c0c0e',
 };
+
+function getToken() {
+  const match = document.cookie.match(/zolytics_token=([^;]+)/);
+  return match ? match[1] : null;
+}
+
+function setToken(token) {
+  document.cookie = 'zolytics_token=' + token + '; path=/; max-age=31536000; SameSite=Strict';
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat('en-US').format(Number(value || 0));
+}
 
 function useAnalytics(period) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const load = useCallback(() => {
+  async function loadData() {
     setLoading(true);
     setError(null);
-    fetch('/api/analytics/query?period=' + period)
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(e => { setError(e.message); setLoading(false); });
+
+    try {
+      const token = getToken();
+      const tokenParam = token ? '&token=' + encodeURIComponent(token) : '';
+      const response = await fetch('/api/analytics/query?period=' + period + tokenParam);
+
+      if (response.status === 401) {
+        throw new Error('unauthorized');
+      }
+
+      const payload = await response.json();
+      setData(payload);
+      setLoading(false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Request failed');
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
   }, [period]);
 
-  useEffect(() => { load(); }, [load]);
-
-  return { data, loading, error, reload: load };
+  return { data, loading, error, reload: loadData };
 }
 
-function StatCard({ label, value, sub }) {
+function LoginGate({ onAuth }) {
+  const [input, setInput] = useState('');
+  const [error, setError] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setChecking(true);
+    setError(false);
+
+    try {
+      const response = await fetch('/api/analytics/query?period=7d&token=' + encodeURIComponent(input.trim()));
+      if (response.status === 401) {
+        setError(true);
+        setChecking(false);
+        return;
+      }
+
+      setToken(input.trim());
+      onAuth(input.trim());
+    } catch {
+      setError(true);
+      setChecking(false);
+    }
+  }
+
   return (
-    <div style={{
-      background: COLORS.surface,
-      border: '1px solid ' + COLORS.border,
-      borderRadius: 10,
-      padding: '20px 24px',
-      minWidth: 0,
-    }}>
-      <div style={{ color: COLORS.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{label}</div>
-      <div style={{ color: COLORS.text, fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ color: COLORS.muted, fontSize: 12, marginTop: 6 }}>{sub}</div>}
+    <div className="zolytics-root">
+      <style>{dashboardStyles}</style>
+      <div className="zolytics-grain" />
+      <div className="zolytics-auth-shell">
+        <form onSubmit={handleSubmit} className="zolytics-auth-card zolytics-card">
+          <div className="zolytics-eyebrow">private route</div>
+          <h1>Zolytics</h1>
+          <p>Privacy-first traffic telemetry for Zo Computer routes. Authenticate with the owner token to continue.</p>
+          <label className="zolytics-label" htmlFor="zolytics-token">Access token</label>
+          <input
+            id="zolytics-token"
+            type="password"
+            value={input}
+            onChange={event => setInput(event.target.value)}
+            placeholder="Enter token"
+            className="zolytics-input"
+            autoFocus
+          />
+          {error ? <div className="zolytics-error">Invalid token</div> : null}
+          <button type="submit" disabled={checking || !input.trim()} className="zolytics-button">
+            {checking ? 'Checking…' : 'Open dashboard'}
+          </button>
+        </form>
+      </div>
     </div>
   );
+}
+
+function StatCard({ label, value, subtext }) {
+  return (
+    <section className="zolytics-card zolytics-stat-card">
+      <div className="zolytics-card-label">{label}</div>
+      <div className="zolytics-stat-value">{value}</div>
+      {subtext ? <p className="zolytics-card-subtext">{subtext}</p> : null}
+    </section>
+  );
+}
+
+function LoadingCard({ height = 112 }) {
+  return <div className="zolytics-card zolytics-loading-card" style={{ height }} />;
+}
+
+function EmptyState({ message }) {
+  return <div className="zolytics-empty">{message}</div>;
 }
 
 function BarChart({ daily }) {
   if (!daily || daily.length === 0) {
-    return (
-      <div style={{ color: COLORS.muted, textAlign: 'center', padding: 40, fontSize: 14 }}>
-        No data for this period
-      </div>
-    );
+    return <EmptyState message="No page view data for this period." />;
   }
 
-  const max = Math.max(...daily.map(d => d.count), 1);
+  const max = Math.max(...daily.map(item => item.count), 1);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 120, padding: '0 4px' }}>
-      {daily.map((d, i) => {
-        const pct = (d.count / max) * 100;
-        const short = d.date ? d.date.slice(5) : '';
-        const showLabel = daily.length <= 14 || i % Math.ceil(daily.length / 10) === 0;
-        return (
-          <div key={d.date || i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 0 }}>
-            <div style={{
-              width: '100%',
-              height: pct + '%',
-              minHeight: d.count > 0 ? 2 : 0,
-              background: COLORS.bar,
-              borderRadius: '2px 2px 0 0',
-              transition: 'height 0.3s ease',
-              cursor: 'default',
-            }} title={d.date + ': ' + d.count + ' views'} />
-            {showLabel && (
-              <div style={{ color: COLORS.muted, fontSize: 9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                {short}
+    <div className="zolytics-chart-wrap">
+      <div className="zolytics-chart">
+        {daily.map((item, index) => {
+          const height = Math.max((item.count / max) * 100, item.count > 0 ? 4 : 0);
+          const showLabel = daily.length <= 14 || index % Math.ceil(daily.length / 8) === 0 || index === daily.length - 1;
+          return (
+            <div key={item.date || index} className="zolytics-chart-column">
+              <div className="zolytics-chart-bar-shell" title={item.date + ': ' + item.count + ' views'}>
+                <div className="zolytics-chart-bar" style={{ height: height + '%' }} />
               </div>
-            )}
-          </div>
-        );
-      })}
+              <div className="zolytics-chart-value">{formatNumber(item.count)}</div>
+              <div className="zolytics-chart-label">{showLabel ? item.date.slice(5) : '·'}</div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function TopList({ items, keyField, label }) {
+function TopList({ items, keyField, emptyMessage }) {
   if (!items || items.length === 0) {
-    return <div style={{ color: COLORS.muted, fontSize: 13, padding: '16px 0' }}>No data</div>;
+    return <EmptyState message={emptyMessage} />;
   }
-  const max = Math.max(...items.map(x => x.count), 1);
+
+  const max = Math.max(...items.map(item => item.count), 1);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {items.map((item, i) => {
-        const pct = (item.count / max) * 100;
-        const key = item[keyField] || 'unknown';
-        const displayKey = key.length > 40 ? key.slice(0, 38) + '…' : key;
+    <div className="zolytics-list">
+      {items.map((item, index) => {
+        const key = item[keyField] || 'Unknown';
+        const width = Math.max((item.count / max) * 100, 4);
         return (
-          <div key={i}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-              <span style={{ color: COLORS.text, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8 }}>
-                {displayKey}
-              </span>
-              <span style={{ color: COLORS.accentLight, fontSize: 13, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                {item.count.toLocaleString()}
-              </span>
+          <div key={index} className="zolytics-list-row">
+            <div className="zolytics-list-meta">
+              <span className="zolytics-list-key">{key}</span>
+              <strong>{formatNumber(item.count)}</strong>
             </div>
-            <div style={{ height: 3, background: COLORS.border, borderRadius: 2 }}>
-              <div style={{ height: '100%', width: pct + '%', background: COLORS.bar, borderRadius: 2, transition: 'width 0.4s ease' }} />
+            <div className="zolytics-list-bar-shell">
+              <div className="zolytics-list-bar" style={{ width: width + '%' }} />
             </div>
           </div>
         );
@@ -124,195 +189,711 @@ function TopList({ items, keyField, label }) {
   );
 }
 
-function DeviceChart({ devices }) {
-  if (!devices || devices.length === 0) return null;
-  const total = devices.reduce((s, d) => s + d.count, 0) || 1;
-  const deviceColors = { mobile: '#7c3aed', tablet: '#2563eb', desktop: '#10b981' };
+function DeviceBreakdown({ devices }) {
+  if (!devices || devices.length === 0) {
+    return <EmptyState message="No device data for this period." />;
+  }
+
+  const total = devices.reduce((sum, item) => sum + item.count, 0) || 1;
+
   return (
-    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-      {devices.map((d, i) => {
-        const pct = Math.round((d.count / total) * 100);
-        const color = deviceColors[d.device] || COLORS.accentLight;
+    <div className="zolytics-device-grid">
+      {devices.map((item, index) => {
+        const percentage = Math.round((item.count / total) * 100);
         return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
-            <span style={{ color: COLORS.text, fontSize: 13 }}>
-              {d.device} <span style={{ color: COLORS.muted }}>({pct}%)</span>
-            </span>
+          <div key={index} className="zolytics-card zolytics-device-card">
+            <div className="zolytics-card-label">{item.device || 'unknown'}</div>
+            <div className="zolytics-device-value">{percentage}%</div>
+            <p className="zolytics-card-subtext">{formatNumber(item.count)} visits</p>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function DashboardInner() {
+  const [period, setPeriod] = useState('30d');
+  const { data, loading, error, reload } = useAnalytics(period);
+  const selectedPeriod = PERIODS.find(option => option.value === period) || PERIODS[1];
+
+  useEffect(() => {
+    document.title = META.title;
+    document.documentElement.style.background = META.color;
+    document.body.style.background = META.color;
+
+    let fontLink = document.querySelector('link[data-zolytics-fonts]');
+    if (!fontLink) {
+      fontLink = document.createElement('link');
+      fontLink.setAttribute('data-zolytics-fonts', 'true');
+      fontLink.setAttribute('rel', 'stylesheet');
+      fontLink.setAttribute(
+        'href',
+        'https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap'
+      );
+      document.head.appendChild(fontLink);
+    }
+
+    const tags = [
+      ['description', META.description],
+      ['og:title', META.title],
+      ['og:description', META.description],
+      ['og:url', META.url],
+      ['og:type', 'website'],
+      ['twitter:card', 'summary_large_image'],
+      ['twitter:title', META.title],
+      ['twitter:description', META.description],
+      ['theme-color', META.color],
+    ];
+
+    document.querySelectorAll('meta[data-zolytics-meta]').forEach(node => node.remove());
+    tags.forEach(([key, value]) => {
+      const tag = document.createElement('meta');
+      tag.setAttribute('data-zolytics-meta', 'true');
+      if (key.startsWith('og:') || key.startsWith('twitter:')) {
+        tag.setAttribute('property', key);
+      } else {
+        tag.setAttribute('name', key);
+      }
+      tag.setAttribute('content', value);
+      document.head.appendChild(tag);
+    });
+  }, []);
+
+  return (
+    <div className="zolytics-root">
+      <style>{dashboardStyles}</style>
+      <div className="zolytics-grain" />
+      <div className="zolytics-shell">
+        <header className="zolytics-hero">
+          <div className="zolytics-hero-copy zolytics-card">
+            <div className="zolytics-eyebrow">// zolytics</div>
+            <h1>Zolytics Dashboard</h1>
+            <p>
+              Private, self-hosted web analytics for Zo Space. No cookies. No third-party scripts. Just a clean
+              view of traffic moving through the machine.
+            </p>
+            <div className="zolytics-badge-row">
+              <span className="zolytics-badge">Route: /analytics</span>
+              <span className="zolytics-badge">API: /api/analytics/query</span>
+              <span className="zolytics-badge">Scope: {selectedPeriod.description}</span>
+            </div>
+          </div>
+          <div className="zolytics-hero-side zolytics-card">
+            <div className="zolytics-card-label">Time range</div>
+            <div className="zolytics-toggle-row">
+              {PERIODS.map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={'zolytics-toggle' + (option.value === period ? ' is-active' : '')}
+                  onClick={() => setPeriod(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="zolytics-hero-actions">
+              <button type="button" className="zolytics-secondary-button" onClick={reload}>
+                Refresh
+              </button>
+            </div>
+            <p className="zolytics-card-subtext">Authenticated via owner token cookie. This route is intended to remain private.</p>
+          </div>
+        </header>
+
+        {error ? (
+          <div className="zolytics-error-banner">
+            {error === 'unauthorized' ? 'Session expired. Reload and re-enter the access token.' : 'Failed to load analytics.'}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="zolytics-stat-grid">
+            <LoadingCard />
+            <LoadingCard />
+            <LoadingCard />
+          </div>
+        ) : data ? (
+          <div className="zolytics-stat-grid">
+            <StatCard label={'Views · ' + period} value={formatNumber(data.total)} subtext="Total tracked page views in the selected range" />
+            <StatCard label="Last 24 hours" value={formatNumber(data.todayTotal)} subtext="Recent movement through the route set" />
+            <StatCard label="Active pages" value={formatNumber(data.topPages?.length || 0)} subtext="Unique high-traffic paths in the response" />
+          </div>
+        ) : null}
+
+        <div className="zolytics-main-grid">
+          <section className="zolytics-card zolytics-panel zolytics-panel-wide">
+            <div className="zolytics-panel-head">
+              <div>
+                <div className="zolytics-card-label">Traffic trend</div>
+                <h2>Page views over time</h2>
+              </div>
+            </div>
+            {loading ? <LoadingCard height={280} /> : <BarChart daily={data?.daily || []} />}
+          </section>
+
+          <section className="zolytics-card zolytics-panel">
+            <div className="zolytics-panel-head">
+              <div>
+                <div className="zolytics-card-label">Pages</div>
+                <h2>Top routes</h2>
+              </div>
+            </div>
+            {loading ? <LoadingCard height={260} /> : <TopList items={data?.topPages || []} keyField="path" emptyMessage="No page data for this period." />}
+          </section>
+
+          <section className="zolytics-card zolytics-panel">
+            <div className="zolytics-panel-head">
+              <div>
+                <div className="zolytics-card-label">Referrers</div>
+                <h2>Traffic sources</h2>
+              </div>
+            </div>
+            {loading ? <LoadingCard height={260} /> : <TopList items={data?.referrers || []} keyField="referrer" emptyMessage="No referrer data for this period." />}
+          </section>
+
+          <section className="zolytics-card zolytics-panel zolytics-panel-wide">
+            <div className="zolytics-panel-head">
+              <div>
+                <div className="zolytics-card-label">Devices</div>
+                <h2>Device mix</h2>
+              </div>
+            </div>
+            {loading ? <LoadingCard height={160} /> : <DeviceBreakdown devices={data?.devices || []} />}
+          </section>
+        </div>
+
+        <footer className="zolytics-footer">
+          Zolytics · privacy-first analytics for Zo Computers ·{' '}
+          <a href="https://github.com/NYTEMODEONLY/zolytics">GitHub</a>
+        </footer>
+      </div>
     </div>
   );
 }
 
 export default function AnalyticsDashboard() {
-  const [period, setPeriod] = useState('30d');
-  const { data, loading, error, reload } = useAnalytics(period);
+  const [authed, setAuthed] = useState(() => !!getToken());
 
-  useEffect(() => {
-    document.title = 'Zolytics';
-  }, []);
+  if (!authed) {
+    return <LoginGate onAuth={() => setAuthed(true)} />;
+  }
 
-  const containerStyle = {
-    background: COLORS.bg,
-    minHeight: '100vh',
-    color: COLORS.text,
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    fontSize: 14,
-  };
-
-  const innerStyle = {
-    maxWidth: 960,
-    margin: '0 auto',
-    padding: '32px 16px',
-  };
-
-  const sectionStyle = {
-    background: COLORS.surface,
-    border: '1px solid ' + COLORS.border,
-    borderRadius: 10,
-    padding: 24,
-    marginBottom: 20,
-  };
-
-  const gridStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-    gap: 16,
-    marginBottom: 20,
-  };
-
-  const twoColStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: 20,
-    marginBottom: 20,
-  };
-
-  return (
-    <div style={containerStyle}>
-      <div style={innerStyle}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 28 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: COLORS.text }}>
-              <span style={{ color: COLORS.accentLight }}>Zo</span> Analytics
-            </h1>
-            <p style={{ margin: '4px 0 0', color: COLORS.muted, fontSize: 13 }}>
-              Privacy-first · No cookies · Self-hosted
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {PERIODS.map(p => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                style={{
-                  background: period === p.value ? COLORS.accent : 'transparent',
-                  color: period === p.value ? '#fff' : COLORS.muted,
-                  border: '1px solid ' + (period === p.value ? COLORS.accent : COLORS.border),
-                  borderRadius: 6,
-                  padding: '6px 14px',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  fontWeight: period === p.value ? 600 : 400,
-                  transition: 'all 0.15s',
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-            <button
-              onClick={reload}
-              style={{
-                background: 'transparent',
-                color: COLORS.muted,
-                border: '1px solid ' + COLORS.border,
-                borderRadius: 6,
-                padding: '6px 12px',
-                cursor: 'pointer',
-                fontSize: 13,
-              }}
-              title="Refresh"
-            >↻</button>
-          </div>
-        </div>
-
-        {/* Error state */}
-        {error && (
-          <div style={{ background: '#1f0000', border: '1px solid #7f1d1d', borderRadius: 8, padding: '12px 16px', marginBottom: 20, color: '#fca5a5', fontSize: 13 }}>
-            Failed to load analytics: {error}
-          </div>
-        )}
-
-        {/* Stats */}
-        {loading ? (
-          <div style={{ ...gridStyle }}>
-            {[1, 2, 3].map(i => (
-              <div key={i} style={{ background: COLORS.surface, border: '1px solid ' + COLORS.border, borderRadius: 10, padding: '20px 24px', height: 80 }} />
-            ))}
-          </div>
-        ) : data ? (
-          <div style={gridStyle}>
-            <StatCard label={'Total Views (' + period + ')'} value={(data.total || 0).toLocaleString()} />
-            <StatCard label="Views (last 24h)" value={(data.todayTotal || 0).toLocaleString()} />
-            <StatCard label="Top Pages" value={(data.topPages?.length || 0).toLocaleString()} sub={'unique paths'} />
-          </div>
-        ) : null}
-
-        {/* Daily chart */}
-        {data && (
-          <div style={sectionStyle}>
-            <h2 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 600, color: COLORS.text }}>
-              Page Views — {period}
-            </h2>
-            <BarChart daily={data.daily} />
-          </div>
-        )}
-
-        {/* Top pages + referrers */}
-        {data && (
-          <div style={twoColStyle}>
-            <div style={sectionStyle}>
-              <h2 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: COLORS.text }}>Top Pages</h2>
-              <TopList items={data.topPages} keyField="path" label="path" />
-            </div>
-            <div style={sectionStyle}>
-              <h2 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: COLORS.text }}>Referrers</h2>
-              <TopList items={data.referrers} keyField="referrer" label="referrer" />
-            </div>
-          </div>
-        )}
-
-        {/* Devices */}
-        {data && data.devices && data.devices.length > 0 && (
-          <div style={sectionStyle}>
-            <h2 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: COLORS.text }}>Devices</h2>
-            <DeviceChart devices={data.devices} />
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{ textAlign: 'center', color: COLORS.muted, fontSize: 12, marginTop: 32 }}>
-          Zolytics · Privacy-first web analytics for Zo Computers ·{' '}
-          <a href="https://github.com/NYTEMODEONLY/zolytics" style={{ color: COLORS.accentLight, textDecoration: 'none' }}>
-            GitHub
-          </a>
-        </div>
-      </div>
-
-      {/* Mobile responsive styles */}
-      <style>{`
-        @media (max-width: 640px) {
-          h1 { font-size: 18px !important; }
-          button { padding: 5px 10px !important; font-size: 12px !important; }
-        }
-        @media (max-width: 480px) {
-          div[style*="maxWidth: 960"] { padding: 16px 12px !important; }
-        }
-        * { box-sizing: border-box; }
-      `}</style>
-    </div>
-  );
+  return <DashboardInner />;
 }
+
+const dashboardStyles = `
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #0c0c0e; color: #e4e4e7; }
+  body { overflow-x: hidden; }
+  ::selection { background: #c2410c; color: #fff; }
+
+  .zolytics-root {
+    min-height: 100vh;
+    background: #0c0c0e;
+    color: #e4e4e7;
+    font-family: 'Outfit', sans-serif;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  .zolytics-grain {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.03;
+    z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 220px;
+  }
+
+  .zolytics-shell,
+  .zolytics-auth-shell {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px 32px 80px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .zolytics-auth-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 24px;
+    padding-bottom: 24px;
+  }
+
+  .zolytics-card {
+    background: rgba(24, 24, 27, 0.82);
+    border: 1px solid #27272a;
+    border-radius: 18px;
+    box-shadow: 0 16px 60px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(10px);
+  }
+
+  .zolytics-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+    gap: 24px;
+    padding-top: 28px;
+    margin-bottom: 24px;
+  }
+
+  .zolytics-hero-copy,
+  .zolytics-hero-side,
+  .zolytics-auth-card,
+  .zolytics-panel,
+  .zolytics-stat-card {
+    padding: 28px;
+  }
+
+  .zolytics-eyebrow,
+  .zolytics-card-label,
+  .zolytics-chart-value,
+  .zolytics-chart-label,
+  .zolytics-footer,
+  .zolytics-badge,
+  .zolytics-card-subtext,
+  .zolytics-list-meta strong,
+  .zolytics-device-value,
+  .zolytics-input,
+  .zolytics-label,
+  .zolytics-button,
+  .zolytics-secondary-button,
+  .zolytics-toggle {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .zolytics-eyebrow,
+  .zolytics-card-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #c2410c;
+  }
+
+  .zolytics-hero h1,
+  .zolytics-auth-card h1,
+  .zolytics-panel h2 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: #f4f4f5;
+    margin: 0;
+  }
+
+  .zolytics-hero h1,
+  .zolytics-auth-card h1 {
+    font-size: clamp(2.8rem, 7vw, 4.6rem);
+    line-height: 0.95;
+    margin: 18px 0 18px;
+  }
+
+  .zolytics-panel h2 {
+    font-size: 2rem;
+    line-height: 1.05;
+    margin-top: 8px;
+  }
+
+  .zolytics-hero p,
+  .zolytics-auth-card p {
+    margin: 0;
+    color: #a1a1aa;
+    font-size: 1.02rem;
+    line-height: 1.7;
+    max-width: 58ch;
+  }
+
+  .zolytics-badge-row,
+  .zolytics-toggle-row,
+  .zolytics-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .zolytics-badge,
+  .zolytics-toggle,
+  .zolytics-secondary-button,
+  .zolytics-button {
+    border-radius: 999px;
+    border: 1px solid #27272a;
+    background: rgba(39, 39, 42, 0.6);
+    color: #d4d4d8;
+    padding: 11px 16px;
+    font-size: 0.76rem;
+    letter-spacing: 0.03em;
+  }
+
+  .zolytics-badge-row {
+    margin-top: 26px;
+  }
+
+  .zolytics-toggle,
+  .zolytics-secondary-button,
+  .zolytics-button {
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  }
+
+  .zolytics-toggle:hover,
+  .zolytics-secondary-button:hover,
+  .zolytics-button:hover {
+    border-color: rgba(212, 165, 116, 0.5);
+    color: #d4a574;
+  }
+
+  .zolytics-toggle.is-active,
+  .zolytics-button {
+    background: #c2410c;
+    border-color: #c2410c;
+    color: #fff;
+  }
+
+  .zolytics-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .zolytics-hero-side {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .zolytics-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .zolytics-stat-value,
+  .zolytics-device-value {
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1;
+    color: #f4f4f5;
+    margin-top: 16px;
+  }
+
+  .zolytics-card-subtext {
+    margin: 12px 0 0;
+    color: #52525b;
+    font-size: 0.72rem;
+    line-height: 1.7;
+    letter-spacing: 0.03em;
+  }
+
+  .zolytics-main-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+  }
+
+  .zolytics-panel {
+    min-width: 0;
+  }
+
+  .zolytics-panel-wide {
+    grid-column: span 2;
+  }
+
+  .zolytics-panel-head {
+    margin-bottom: 20px;
+  }
+
+  .zolytics-chart-wrap {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .zolytics-chart {
+    min-width: 640px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(28px, 1fr));
+    gap: 8px;
+    align-items: end;
+  }
+
+  .zolytics-chart-column {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .zolytics-chart-bar-shell {
+    height: 220px;
+    border-radius: 14px;
+    background: #111114;
+    border: 1px solid rgba(39, 39, 42, 0.8);
+    padding: 8px;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .zolytics-chart-bar {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #d4a574 0%, #c2410c 100%);
+  }
+
+  .zolytics-chart-value {
+    font-size: 0.68rem;
+    color: #a1a1aa;
+  }
+
+  .zolytics-chart-label {
+    font-size: 0.64rem;
+    color: #52525b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .zolytics-list {
+    display: grid;
+    gap: 14px;
+  }
+
+  .zolytics-list-row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .zolytics-list-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .zolytics-list-key {
+    color: #e4e4e7;
+    font-size: 0.94rem;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .zolytics-list-meta strong {
+    color: #d4a574;
+    font-size: 0.78rem;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .zolytics-list-bar-shell {
+    height: 10px;
+    border-radius: 999px;
+    background: #111114;
+    overflow: hidden;
+  }
+
+  .zolytics-list-bar {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #c2410c 0%, #d4a574 100%);
+  }
+
+  .zolytics-device-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .zolytics-device-card {
+    padding: 22px;
+  }
+
+  .zolytics-empty,
+  .zolytics-loading-card {
+    display: grid;
+    place-items: center;
+    border-radius: 16px;
+    background: rgba(17, 17, 20, 0.72);
+    border: 1px dashed rgba(39, 39, 42, 0.85);
+    color: #52525b;
+  }
+
+  .zolytics-empty {
+    min-height: 180px;
+    padding: 24px;
+    text-align: center;
+    line-height: 1.7;
+  }
+
+  .zolytics-loading-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .zolytics-loading-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(212, 165, 116, 0.08), transparent);
+    transform: translateX(-100%);
+    animation: zolyticsShimmer 1.6s infinite;
+  }
+
+  .zolytics-auth-card {
+    width: min(100%, 460px);
+  }
+
+  .zolytics-label {
+    display: block;
+    margin: 28px 0 12px;
+    color: #a1a1aa;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .zolytics-input {
+    width: 100%;
+    padding: 15px 18px;
+    border-radius: 14px;
+    border: 1px solid #27272a;
+    background: #111114;
+    color: #e4e4e7;
+    font-size: 0.82rem;
+    outline: none;
+  }
+
+  .zolytics-input:focus {
+    border-color: rgba(194, 65, 12, 0.75);
+  }
+
+  .zolytics-error,
+  .zolytics-error-banner {
+    border: 1px solid rgba(127, 29, 29, 0.72);
+    background: rgba(69, 10, 10, 0.5);
+    color: #fca5a5;
+  }
+
+  .zolytics-error {
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    font-size: 0.86rem;
+  }
+
+  .zolytics-error-banner {
+    padding: 14px 16px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+  }
+
+  .zolytics-footer {
+    margin-top: 28px;
+    padding: 16px 4px 0;
+    color: #52525b;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+
+  .zolytics-footer a {
+    color: #a1a1aa;
+    text-decoration: none;
+    border-bottom: 1px solid #27272a;
+  }
+
+  .zolytics-footer a:hover {
+    color: #d4a574;
+  }
+
+  @keyframes zolyticsShimmer {
+    to { transform: translateX(100%); }
+  }
+
+  @media (max-width: 1024px) {
+    .zolytics-hero,
+    .zolytics-main-grid,
+    .zolytics-device-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .zolytics-panel-wide {
+      grid-column: span 1;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .zolytics-shell,
+    .zolytics-auth-shell {
+      padding: 24px 16px 56px;
+    }
+
+    .zolytics-stat-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .zolytics-hero-copy,
+    .zolytics-hero-side,
+    .zolytics-auth-card,
+    .zolytics-panel,
+    .zolytics-stat-card {
+      padding: 22px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .zolytics-hero h1,
+    .zolytics-auth-card h1 {
+      font-size: clamp(2.4rem, 15vw, 3.2rem);
+    }
+
+    .zolytics-panel h2 {
+      font-size: 1.7rem;
+    }
+
+    .zolytics-badge,
+    .zolytics-toggle,
+    .zolytics-secondary-button,
+    .zolytics-button {
+      width: 100%;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .zolytics-chart {
+      min-width: 560px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .zolytics-list-meta {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .zolytics-hero p,
+    .zolytics-auth-card p {
+      font-size: 1rem;
+    }
+
+    .zolytics-input {
+      font-size: 16px;
+    }
+  }
+
+  @media (max-width: 320px) {
+    .zolytics-shell,
+    .zolytics-auth-shell {
+      padding-inline: 12px;
+    }
+
+    .zolytics-hero-copy,
+    .zolytics-hero-side,
+    .zolytics-auth-card,
+    .zolytics-panel,
+    .zolytics-stat-card {
+      padding: 18px;
+    }
+  }
+`;
