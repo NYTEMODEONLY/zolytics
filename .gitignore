@@ -1,5 +1,4 @@
 analytics.db
 *.db-journal
-*.db-shm
 *.db-wal
-.auth_token
+*.db-shm

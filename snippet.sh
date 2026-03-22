@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zolytics snippet.sh
+# zo-analytics snippet.sh
 # Generates the tracking snippet for your Zo Space pages.
 # Usage: bash snippet.sh [--domain yourdomain.zo.space] [--format jsx|html|inline]
 
@@ -44,13 +44,13 @@ COLLECT_ENDPOINT="/api/analytics/collect"
 case "$FORMAT" in
   html)
     echo ""
-    echo "<!-- Zolytics tracking snippet -->"
+    echo "<!-- Zo Analytics tracking snippet -->"
     echo "<script src=\"${TRACKER_URL}\" defer></script>"
     echo ""
     ;;
   inline)
     echo ""
-    echo "<!-- Zolytics — inline tracking (no external script) -->"
+    echo "<!-- Zo Analytics — inline tracking (no external script) -->"
     cat << SNIPPET
 <script>
 (function(){
@@ -74,7 +74,7 @@ SNIPPET
     ;;
   jsx|*)
     echo ""
-    echo "// Zolytics — add to useEffect in your Zo Space JSX page"
+    echo "// Zo Analytics — add to useEffect in your Zo Space JSX page"
     echo ""
     echo "useEffect(() => {"
     echo "  const s = document.createElement('script');"

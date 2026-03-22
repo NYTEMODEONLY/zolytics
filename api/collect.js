@@ -1,4 +1,4 @@
-// zolytics — Collection API Route
+// zo-analytics — Collection API Route
 // Runtime: Bun + Hono (Zo Space server-side)
 // Route: /api/analytics/collect  (route_type=api)
 // POST { path, referrer, viewport_width, timestamp } → 204 | 400 | 429
@@ -16,7 +16,7 @@ let requestCount = 0;
 
 function getDb(): any {
   if (!db) {
-    db = new Database("/home/workspace/zolytics/analytics.db");
+    db = new Database("/home/workspace/zo-analytics/analytics.db");
     db.exec(`
       CREATE TABLE IF NOT EXISTS page_views (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,18 +52,9 @@ function checkRateLimit(ip: string): boolean {
   return entry.count <= RATE_LIMIT;
 }
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
 export default async function handler(c: any): Promise<Response> {
-  if (c.req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-  }
   if (c.req.method !== "POST") {
-    return new Response(null, { status: 405, headers: CORS_HEADERS });
+    return new Response(null, { status: 405 });
   }
 
   // Rate limiting by IP
@@ -134,9 +125,9 @@ export default async function handler(c: any): Promise<Response> {
         .run();
     }
   } catch (e) {
-    console.error("[zolytics] DB error:", e);
+    console.error("[zo-analytics] DB error:", e);
     return new Response(null, { status: 500 });
   }
 
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
+  return new Response(null, { status: 204 });
 }
