@@ -185,11 +185,12 @@ main() {
   python3 "${ZOLYTICS_DIR}/sync-tracker.py" || true
 
   echo ""
-  info "Setting up periodic sync agent (runs every 30 min via Zo agent)..."
-  python3 "${ZOLYTICS_DIR}/sync-tracker.py" --setup-cron || true
-
+  echo "  ✅ All existing pages now have the Zolytics tracker."
   echo ""
-  echo "  Next: new pages will be auto-tracked within 30 minutes of creation."
+  echo "  For automatic tracking of NEW pages, set up an OpenClaw cron job:"
+  echo "    openclaw cron add --name 'Zolytics Tracker Sync' --every 30m \\"
+  echo "      --task 'python3 ${ZOLYTICS_DIR}/sync-tracker.py'"
+  echo ""
   echo "  Run sync manually: python3 ${ZOLYTICS_DIR}/sync-tracker.py"
   echo "  For full guide: cat ${ZOLYTICS_DIR}/INTEGRATION.md"
   echo ""

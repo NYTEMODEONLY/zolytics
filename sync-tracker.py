@@ -8,7 +8,7 @@ Usage:
   python3 sync-tracker.py --dry-run        # Show what would change, no writes
   python3 sync-tracker.py --route /path    # Sync a specific route only
   python3 sync-tracker.py --skip /a,/b    # Skip additional routes
-  python3 sync-tracker.py --setup-cron    # Create Zo agent for periodic auto-sync
+  python3 sync-tracker.py --setup-cron    # (deprecated — use OpenClaw cron instead)
 
 Run after install.sh to track all current pages, then set up cron for future pages.
 """
@@ -61,15 +61,9 @@ DEFAULT_SKIP = {
     "/api/analytics/query",
 }
 
-# Cron agent config — free model, 30-min interval
-CRON_AGENT_RRULE = "FREQ=MINUTELY;INTERVAL=30"
-CRON_AGENT_INSTRUCTION = (
-    "Run the Zolytics tracker sync to ensure all Zo Space pages are tracked. "
-    "Execute: python3 /home/workspace/zolytics/sync-tracker.py\n"
-    "This script checks all page routes and injects the Zolytics analytics tracker "
-    "into any pages that are missing it. Report back with the summary output."
-)
-CRON_AGENT_MODEL = "vercel:minimax/minimax-m2.5"
+# Cron: use OpenClaw cron (free via OAuth), NOT Zo Agents (burns credits)
+# Setup: openclaw cron add --name "Zolytics Tracker Sync" --every 30m \
+#   --task "python3 /home/workspace/zolytics/sync-tracker.py"
 
 
 def run_mcporter(args, timeout=120):
@@ -225,21 +219,15 @@ def inject_tracker(path):
 
 
 def setup_cron_agent():
-    print(f"  [zolytics] Creating Zo agent for periodic tracker sync (every 30 min)...")
-    stdout, stderr, code = run_mcporter([
-        "zo.create_agent",
-        f"rrule={CRON_AGENT_RRULE}",
-        f"instruction={CRON_AGENT_INSTRUCTION}",
-        f"model={CRON_AGENT_MODEL}",
-    ], timeout=60)
-
-    if stdout.startswith("Error:") or (code != 0 and not stdout):
-        print(f"  ERROR: Failed to create cron agent: {stdout or stderr}", file=sys.stderr)
-        return False
-
-    print(f"  Cron agent created — sync-tracker.py runs every 30 minutes")
-    if stdout:
-        print(f"    {stdout[:300]}")
+    """
+    DEPRECATED: Zo Agent cron removed (violates $0 credits policy).
+    Use OpenClaw cron instead:
+      openclaw cron add --name "Zolytics Tracker Sync" --every 30m \
+        --task "python3 /home/workspace/zolytics/sync-tracker.py"
+    """
+    print("  [zolytics] NOTE: Zo Agent cron is deprecated (burns Zo credits).")
+    print("  [zolytics] Use OpenClaw cron instead for free periodic sync.")
+    print("  [zolytics] See README.md for setup instructions.")
     return True
 
 
