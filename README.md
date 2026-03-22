@@ -24,16 +24,18 @@ Track page views on your Zo Space without cookies, fingerprinting, or external s
 # 1. Clone
 git clone https://github.com/NYTEMODEONLY/zolytics /home/workspace/zolytics
 
-# 2. Install (deploys routes to your Zo Space)
+# 2. Install (deploys routes, injects tracker site-wide, sets up auto-sync)
 bash /home/workspace/zolytics/install.sh
 
 # 3. Save the auth token printed at the end of install!
-
-# 4. Add the tracker to your pages (see snippet.sh below)
-bash /home/workspace/zolytics/snippet.sh
 ```
 
 Your dashboard will be live at `https://[yourdomain].zo.space/analytics`.
+
+Installation automatically:
+- Deploys the collection API, query API, and analytics dashboard
+- Injects the tracker into **all existing** Zo Space pages
+- Creates a Zo agent that re-runs tracker sync every 30 minutes (auto-tracks new pages)
 
 ---
 
@@ -71,13 +73,43 @@ The query API reads the token file on every request, so rotation takes effect im
 
 ---
 
+## Auto-Tracking (Site-Wide)
+
+Zolytics automatically tracks every page on your Zo Space site — no manual snippet injection needed.
+
+**How it works:**
+
+1. `install.sh` runs `sync-tracker.py` which injects the tracker into all existing page routes
+2. A Zo agent runs `sync-tracker.py` every 30 minutes to catch any new pages
+
+**Manual sync** (if needed):
+
+```bash
+# Check all pages and inject where missing
+python3 /home/workspace/zolytics/sync-tracker.py
+
+# Dry run — see what would change
+python3 /home/workspace/zolytics/sync-tracker.py --dry-run
+
+# Sync a specific route
+python3 /home/workspace/zolytics/sync-tracker.py --route /my-page
+
+# Re-create the cron agent (if deleted)
+python3 /home/workspace/zolytics/sync-tracker.py --setup-cron
+```
+
+The tracker is injected via `zo.update_space_route` `code_edit`, which preserves existing page changes.
+
+---
+
 ## Repository Structure
 
 ```
 zolytics/
   tracker.js                    # Browser tracking snippet (~485B gzipped)
-  install.sh                    # One-command installer
-  snippet.sh                    # Tracking snippet generator
+  install.sh                    # One-command installer (deploys + auto-injects)
+  sync-tracker.py               # Site-wide tracker sync (auto-injects all pages)
+  snippet.sh                    # Tracking snippet generator (manual use)
   lint.sh                       # Syntax / style checker
   README.md                     # This file
   INTEGRATION.md                # Integration guide

@@ -180,8 +180,18 @@ main() {
   echo "  │  Dashboard: https://nytemode.zo.space${ANALYTICS_ROUTE}           │"
   echo "  └─────────────────────────────────────────────────────────────┘"
   echo ""
-  echo "  Next: add the tracking snippet to your pages."
-  echo "  For full integration guide: cat ${ZOLYTICS_DIR}/INTEGRATION.md"
+  echo ""
+  info "Injecting Zolytics tracker into all existing Zo Space pages..."
+  python3 "${ZOLYTICS_DIR}/sync-tracker.py" || true
+
+  echo ""
+  info "Setting up periodic sync agent (runs every 30 min via Zo agent)..."
+  python3 "${ZOLYTICS_DIR}/sync-tracker.py" --setup-cron || true
+
+  echo ""
+  echo "  Next: new pages will be auto-tracked within 30 minutes of creation."
+  echo "  Run sync manually: python3 ${ZOLYTICS_DIR}/sync-tracker.py"
+  echo "  For full guide: cat ${ZOLYTICS_DIR}/INTEGRATION.md"
   echo ""
 }
 
