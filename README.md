@@ -27,11 +27,47 @@ git clone https://github.com/NYTEMODEONLY/zolytics /home/workspace/zolytics
 # 2. Install (deploys routes to your Zo Space)
 bash /home/workspace/zolytics/install.sh
 
-# 3. Add the tracker to your pages (see snippet.sh below)
+# 3. Save the auth token printed at the end of install!
+
+# 4. Add the tracker to your pages (see snippet.sh below)
 bash /home/workspace/zolytics/snippet.sh
 ```
 
 Your dashboard will be live at `https://[yourdomain].zo.space/analytics`.
+
+---
+
+## Authentication
+
+Zolytics protects the query API and dashboard with an auth token. The **collection endpoint** (`/api/analytics/collect`) remains unauthenticated so it can receive anonymous page view hits from visitors.
+
+### Token generation
+
+During installation, a 32-character hex token is generated automatically and saved to `/home/workspace/zolytics/.auth_token`. The token is displayed at the end of installation — **save it**.
+
+### Custom token
+
+To set your own token instead of the auto-generated one:
+
+```bash
+bash install.sh --token mysecretpassword
+```
+
+### Finding your token
+
+```bash
+cat /home/workspace/zolytics/.auth_token
+```
+
+### Rotating your token
+
+Generate a new random token at any time:
+
+```bash
+openssl rand -hex 16 > /home/workspace/zolytics/.auth_token
+```
+
+The query API reads the token file on every request, so rotation takes effect immediately — no restart needed. You will need to log in again on the dashboard with the new token.
 
 ---
 
@@ -135,11 +171,15 @@ Records a page view.
 
 ### GET /api/analytics/query
 
-Returns analytics summary for a time period.
+Returns analytics summary for a time period. **Requires authentication.**
 
 **Query params:**
+- `token` — **required** — your auth token from `.auth_token`
 - `period` — `7d`, `30d` (default), or `90d`
 - `limit` — max items per list (default 10, max 50)
+
+**Auth errors:**
+- `401` — missing, invalid, or no token configured
 
 **Response:**
 ```json

@@ -4,6 +4,53 @@ How to add tracking to your Zo Space pages.
 
 ---
 
+## Authentication
+
+The **query API** (`/api/analytics/query`) and dashboard require an auth token. The **collection API** (`/api/analytics/collect`) is unauthenticated — it accepts anonymous page view hits from visitors.
+
+### How auth works
+
+1. During `bash install.sh`, a 32-char hex token is generated and saved to `/home/workspace/zolytics/.auth_token`.
+2. The query API reads this file on every request and rejects requests without a valid `?token=` parameter (HTTP 401).
+3. The dashboard's login screen stores your token in a cookie and passes it as `?token=` to the query API.
+
+### Setting a custom token
+
+```bash
+bash install.sh --token your-custom-password
+```
+
+### Finding your token
+
+```bash
+cat /home/workspace/zolytics/.auth_token
+```
+
+### Rotating your token
+
+```bash
+openssl rand -hex 16 > /home/workspace/zolytics/.auth_token
+```
+
+No restart needed — the API reads the token file fresh on every request.
+
+### Query API auth examples
+
+```bash
+# Authenticated request (returns data):
+curl "https://[yourdomain].zo.space/api/analytics/query?token=YOUR_TOKEN&period=30d"
+
+# Unauthenticated request (returns 401):
+curl "https://[yourdomain].zo.space/api/analytics/query?period=30d"
+
+# Collection endpoint (no auth needed):
+curl -X POST "https://[yourdomain].zo.space/api/analytics/collect" \
+  -H "Content-Type: application/json" \
+  -d '{"path":"/test","timestamp":"2026-03-22T12:00:00Z"}'
+```
+
+---
+
 ## Quick Snippet
 
 Run the snippet generator for the exact code to add to your pages:

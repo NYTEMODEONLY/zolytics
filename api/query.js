@@ -6,6 +6,7 @@
 const { Database } = require("bun:sqlite");
 
 const DB_PATH = "/home/workspace/zolytics/analytics.db";
+const AUTH_TOKEN_PATH = "/home/workspace/zolytics/.auth_token";
 
 let db: any = null;
 
@@ -38,9 +39,35 @@ const emptyResponse = (period: string) => ({
   devices: [],
 });
 
+function readAuthToken(): string | null {
+  try {
+    const fs = require("fs");
+    return fs.readFileSync(AUTH_TOKEN_PATH, "utf-8").trim();
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(c: any): Promise<Response> {
   if (c.req.method !== "GET") {
     return new Response(null, { status: 405 });
+  }
+
+  // Auth enforcement: read token from disk on every request (no caching)
+  const expectedToken = readAuthToken();
+  if (!expectedToken) {
+    return new Response(JSON.stringify({ error: "auth not configured" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const providedToken = c.req.query("token");
+  if (!providedToken || providedToken !== expectedToken) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const period = c.req.query("period") || "30d";

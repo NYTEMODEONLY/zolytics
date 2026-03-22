@@ -13,6 +13,7 @@ ANALYTICS_ROUTE="${ANALYTICS_ROUTE:-/analytics}"
 COLLECT_ROUTE="/api/analytics/collect"
 QUERY_ROUTE="/api/analytics/query"
 SKIP_CONFIRM=0
+CUSTOM_TOKEN=""
 
 # ─── Arg parsing ─────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -21,6 +22,7 @@ while [[ $# -gt 0 ]]; do
     --analytics-path)  ANALYTICS_ROUTE="$2"; shift ;;
     --db-path)         DB_PATH="$2"; shift ;;
     --dir)             ZOLYTICS_DIR="$2"; shift ;;
+    --token)           CUSTOM_TOKEN="$2"; shift ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
   shift
@@ -132,6 +134,22 @@ main() {
   # 1. Setup DB directory
   setup_db
 
+  # 1b. Generate or set auth token
+  local token_file="${ZOLYTICS_DIR}/.auth_token"
+  if [[ -n "$CUSTOM_TOKEN" ]]; then
+    echo -n "$CUSTOM_TOKEN" > "$token_file"
+    chmod 600 "$token_file"
+    info "Using custom auth token"
+  elif [[ ! -f "$token_file" ]]; then
+    local generated_token
+    generated_token=$(openssl rand -hex 16)
+    echo -n "$generated_token" > "$token_file"
+    chmod 600 "$token_file"
+    info "Generated new auth token"
+  else
+    info "Auth token already exists — keeping existing token"
+  fi
+
   # 2. Deploy collection API
   deploy_route "$COLLECT_ROUTE" "api" "${ZOLYTICS_DIR}/api/collect.js" "Collection API"
 
@@ -144,22 +162,25 @@ main() {
   echo ""
   echo -e "${GREEN}${BOLD}  Installation complete!${RESET}"
   echo ""
+  local saved_token
+  saved_token=$(cat "$token_file")
   echo "  ┌─────────────────────────────────────────────────────────────┐"
-  echo "  │  Next step: add the tracking snippet to your pages           │"
+  echo "  │  ${BOLD}YOUR AUTH TOKEN:${RESET} ${YELLOW}${saved_token}${RESET}"
   echo "  │                                                               │"
-  echo "  │  Paste this into any Zo Space page JSX (inside useEffect):   │"
+  echo "  │  Save this token! You need it to access the dashboard and    │"
+  echo "  │  the query API. It is stored in:                             │"
+  echo "  │    ${ZOLYTICS_DIR}/.auth_token                               │"
   echo "  │                                                               │"
-  echo "  │    const s = document.createElement('script');               │"
-  echo "  │    s.src = '/api/analytics/tracker.js';                       │"
-  echo "  │    s.defer = true;                                            │"
-  echo "  │    document.head.appendChild(s);                             │"
+  echo "  │  To rotate your token:                                       │"
+  echo "  │    openssl rand -hex 16 > ${ZOLYTICS_DIR}/.auth_token        │"
   echo "  │                                                               │"
-  echo "  │  Or deploy tracker.js as an asset and use:                   │"
-  echo "  │    <script src=\"/api/analytics/tracker.js\" defer></script>  │"
+  echo "  │  To set a custom token:                                      │"
+  echo "  │    bash install.sh --token <your-password>                   │"
   echo "  │                                                               │"
   echo "  │  Dashboard: https://nytemode.zo.space${ANALYTICS_ROUTE}           │"
   echo "  └─────────────────────────────────────────────────────────────┘"
   echo ""
+  echo "  Next: add the tracking snippet to your pages."
   echo "  For full integration guide: cat ${ZOLYTICS_DIR}/INTEGRATION.md"
   echo ""
 }
