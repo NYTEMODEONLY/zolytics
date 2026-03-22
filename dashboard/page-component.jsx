@@ -22,6 +22,10 @@ function setToken(token) {
   document.cookie = 'zolytics_token=' + token + '; path=/; max-age=31536000; SameSite=Strict';
 }
 
+function clearToken() {
+  document.cookie = 'zolytics_token=; path=/; max-age=0; SameSite=Strict';
+}
+
 function formatNumber(value) {
   return new Intl.NumberFormat('en-US').format(Number(value || 0));
 }
@@ -161,7 +165,7 @@ function BarChart({ daily }) {
   );
 }
 
-function TopList({ items, keyField, emptyMessage }) {
+function TopList({ items, keyField, emptyMessage, getHref }) {
   if (!items || items.length === 0) {
     return <EmptyState message={emptyMessage} />;
   }
@@ -173,10 +177,16 @@ function TopList({ items, keyField, emptyMessage }) {
       {items.map((item, index) => {
         const key = item[keyField] || 'Unknown';
         const width = Math.max((item.count / max) * 100, 4);
+        const href = getHref ? getHref(item) : null;
+        const labelNode = href ? (
+          <a className="zolytics-list-link" href={href}>{key}</a>
+        ) : (
+          <span className="zolytics-list-key">{key}</span>
+        );
         return (
           <div key={index} className="zolytics-list-row">
             <div className="zolytics-list-meta">
-              <span className="zolytics-list-key">{key}</span>
+              {labelNode}
               <strong>{formatNumber(item.count)}</strong>
             </div>
             <div className="zolytics-list-bar-shell">
@@ -216,6 +226,11 @@ function DashboardInner() {
   const [period, setPeriod] = useState('30d');
   const { data, loading, error, reload } = useAnalytics(period);
   const selectedPeriod = PERIODS.find(option => option.value === period) || PERIODS[1];
+
+  function handleLogout() {
+    clearToken();
+    window.location.reload();
+  }
 
   useEffect(() => {
     document.title = META.title;
@@ -297,6 +312,9 @@ function DashboardInner() {
               <button type="button" className="zolytics-secondary-button" onClick={reload}>
                 Refresh
               </button>
+              <button type="button" className="zolytics-secondary-button" onClick={handleLogout}>
+                Logout
+              </button>
             </div>
             <p className="zolytics-card-subtext">Authenticated via owner token cookie. This route is intended to remain private.</p>
           </div>
@@ -340,7 +358,7 @@ function DashboardInner() {
                 <h2>Top routes</h2>
               </div>
             </div>
-            {loading ? <LoadingCard height={260} /> : <TopList items={data?.topPages || []} keyField="path" emptyMessage="No page data for this period." />}
+            {loading ? <LoadingCard height={260} /> : <TopList items={data?.topPages || []} keyField="path" emptyMessage="No page data for this period." getHref={item => item?.path || null} />}
           </section>
 
           <section className="zolytics-card zolytics-panel">
@@ -365,8 +383,10 @@ function DashboardInner() {
         </div>
 
         <footer className="zolytics-footer">
-          Zolytics · privacy-first analytics for Zo Computers ·{' '}
-          <a href="https://github.com/NYTEMODEONLY/zolytics">GitHub</a>
+          <a href="https://nytemode.zo.space/zoey">Built by Zoey</a>
+          <div className="zolytics-footer-subline">
+            <a href="https://nytemode.com">a nytemode project</a>
+          </div>
         </footer>
       </div>
     </div>
@@ -679,6 +699,20 @@ const dashboardStyles = `
     word-break: break-word;
   }
 
+  .zolytics-list-link {
+    color: #e4e4e7;
+    font-size: 0.94rem;
+    line-height: 1.5;
+    word-break: break-word;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(194, 65, 12, 0.22);
+  }
+
+  .zolytics-list-link:hover {
+    color: #d4a574;
+    border-bottom-color: rgba(212, 165, 116, 0.4);
+  }
+
   .zolytics-list-meta strong {
     color: #d4a574;
     font-size: 0.78rem;
@@ -805,6 +839,24 @@ const dashboardStyles = `
 
   .zolytics-footer a:hover {
     color: #d4a574;
+  }
+
+  .zolytics-footer-subline {
+    margin-top: 10px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+  }
+
+  .zolytics-footer-subline a {
+    color: #a78bfa;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(167, 139, 250, 0.25);
+  }
+
+  .zolytics-footer-subline a:hover {
+    color: #c4b5fd;
+    border-bottom-color: rgba(196, 181, 253, 0.45);
   }
 
   @keyframes zolyticsShimmer {
